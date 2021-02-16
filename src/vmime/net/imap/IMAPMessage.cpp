@@ -39,6 +39,8 @@
 #include "vmime/net/imap/IMAPMessagePartContentHandler.hpp"
 
 #include "vmime/utility/outputStreamAdapter.hpp"
+#include "vmime/messageId.hpp"
+#include "vmime/messageIdSequence.hpp"
 
 #include <sstream>
 #include <iterator>
@@ -110,6 +112,7 @@ IMAPMessage::IMAPMessage(
 	  m_size(-1U),
 	  m_flags(FLAG_UNDEFINED),
 	  m_expunged(false),
+	  m_thread_uid(0),
 	  m_modseq(0),
 	  m_structure(null) {
 
@@ -128,6 +131,7 @@ IMAPMessage::IMAPMessage(
 	  m_flags(FLAG_UNDEFINED),
 	  m_expunged(false),
 	  m_uid(uid),
+	  m_thread_uid(0),
 	  m_modseq(0),
 	  m_structure(null) {
 
@@ -151,6 +155,12 @@ IMAPMessage::~IMAPMessage() {
 	}
 }
 
+bool IMAPMessage::isValid() {
+	shared_ptr <IMAPFolder> folder = m_folder.lock();
+	if (folder)
+		return true;
+	return false;
+}
 
 void IMAPMessage::onFolderClosed() {
 
@@ -169,6 +179,10 @@ const message::uid IMAPMessage::getUID() const {
 	return m_uid;
 }
 
+vmime_uint64 IMAPMessage::getThreadUID() const {
+
+	return m_thread_uid;
+}
 
 vmime_uint64 IMAPMessage::getModSequence() const {
 
@@ -221,6 +235,15 @@ shared_ptr <messageStructure> IMAPMessage::getStructure() {
 	return m_structure;
 }
 
+bool IMAPMessage::hasStructure() const
+{
+	return nullptr != m_structure;
+}
+
+bool IMAPMessage::hasHeader() const
+{
+	return nullptr != m_header;
+}
 
 shared_ptr <const header> IMAPMessage::getHeader() const {
 
@@ -318,6 +341,14 @@ size_t IMAPMessage::extractImpl(
 
 	shared_ptr <const IMAPFolder> folder = m_folder.lock();
 
+	if (!folder) {
+		throw exceptions::folder_not_found();
+	}
+	
+	if (!folder->isOpen()) {
+		throw exceptions::illegal_state("Folder not open");
+	}
+	
 	IMAPMessage_literalHandler literalHandler(os, progress);
 
 	if (length == 0) {
@@ -474,7 +505,6 @@ size_t IMAPMessage::extractImpl(
 	return literalHandler.getTarget()->getBytesWritten();
 }
 
-
 int IMAPMessage::processFetchResponse(
 	const fetchAttributes& options,
 	const IMAPParser::message_data& msgData
@@ -503,6 +533,11 @@ int IMAPMessage::processFetchResponse(
 			case IMAPParser::msg_att_item::UID: {
 
 				m_uid = att->uniqueid->value;
+				break;
+			}
+			case IMAPParser::msg_att_item::X_GM_THRID: {
+
+				m_thread_uid = att->unique_thread_id->value;
 				break;
 			}
 			case IMAPParser::msg_att_item::MODSEQ: {
@@ -571,8 +606,27 @@ int IMAPMessage::processFetchResponse(
 					if (!bcc.isEmpty()) {
 						hdr->Bcc()->setValue(bcc.toAddressList());
 					}
+					
+					// Message-ID
+					if (!env->env_message_id->isNIL) {
+						hdr->MessageId()->setValue(messageId(env->env_message_id->value));
+					}
+
+					// In-Reply-To					
+					if (!env->env_in_reply_to->isNIL) {
+						hdr->InReplyTo()->setValue(messageIdSequence(env->env_message_id->value));
+					}
 				}
 
+				break;
+			}
+			case IMAPParser::msg_att_item::X_GM_LABELS: {
+				m_labels = std::make_shared< std::vector< string >> ( );
+				m_labels->reserve( att->label_list->fld_names.size() );
+				const auto &fldList = att->label_list->fld_names;
+				for ( const auto &name : fldList) {
+					m_labels->push_back( name->value );
+				}
 				break;
 			}
 			case IMAPParser::msg_att_item::BODY_STRUCTURE: {
@@ -651,6 +705,14 @@ void IMAPMessage::setFlags(const int flags, const int mode) {
 	}
 }
 
+const std::vector <string> IMAPMessage::getLabels() const {
+
+	if (m_labels) {
+		return *m_labels;
+	}
+	
+	return std::vector <string> ();
+}
 
 void IMAPMessage::constructParsedMessage(
 	const shared_ptr <bodyPart>& parentPart,

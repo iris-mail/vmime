@@ -80,7 +80,11 @@ IMAPFolder::~IMAPFolder() {
 		if (store) {
 
 			if (m_open) {
-				close(false);
+				try {
+					close(false);
+				} catch (...) {
+					// Ignore exception here to make sure unregisterFolder is called
+				}
 			}
 
 			store->unregisterFolder(this);
@@ -290,7 +294,15 @@ void IMAPFolder::close(const bool expunge) {
 	shared_ptr <IMAPStore> store = m_store.lock();
 
 	if (!store) {
+		if (m_connection && m_connection->isConnected())
+			m_connection->disconnect();
+		m_connection = nullptr;
+		m_open = false;
 		throw exceptions::illegal_state("Store disconnected");
+	}
+
+	if (!isConnected()) {
+		throw exceptions::illegal_state("Folder not connected");
 	}
 
 	if (!isOpen()) {
@@ -546,6 +558,11 @@ bool IMAPFolder::isOpen() const {
 	return m_open;
 }
 
+bool IMAPFolder::isConnected() const {
+	if (m_connection && m_connection->isConnected())
+		return true;
+	return false;
+}
 
 shared_ptr <message> IMAPFolder::getMessage(const size_t num) {
 
@@ -869,6 +886,11 @@ void IMAPFolder::fetchMessages(
 	processStatusUpdate(resp.get());
 }
 
+shared_ptr <IMAPFolderStatus> IMAPFolder::getCurrentFolderStatus()
+{
+       shared_ptr <IMAPFolderStatus> status = vmime::clone(m_status);
+       return status;
+}
 
 void IMAPFolder::fetchMessage(const shared_ptr <message>& msg, const fetchAttributes& options) {
 
@@ -1421,6 +1443,10 @@ void IMAPFolder::noop() {
 		throw exceptions::illegal_state("Store disconnected");
 	}
 
+	if (!isConnected()) {
+		throw exceptions::illegal_state("Store disconnected");
+	}
+
 	IMAPCommand::NOOP()->send(m_connection);
 
 	scoped_ptr <IMAPParser::response> resp(m_connection->readResponse());
@@ -1583,6 +1609,8 @@ void IMAPFolder::processStatusUpdate(const IMAPParser::response* resp) {
 			}
 		}
 	}
+
+	m_status->updateAfterExpunge(size_t(expungedMessageCount));
 
 	// New messages arrived
 	if (m_status->getMessageCount() > oldStatus->getMessageCount() - expungedMessageCount) {

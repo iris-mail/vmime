@@ -94,6 +94,15 @@ const message::uid maildirMessage::getUID() const {
 	return m_uid;
 }
 
+bool maildirMessage::hasStructure() const
+{
+	return nullptr != m_structure;
+}
+
+bool maildirMessage::hasHeader() const
+{
+	return nullptr != m_header;
+}
 
 size_t maildirMessage::getSize() const {
 

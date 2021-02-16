@@ -47,6 +47,22 @@ messageIdSequence::messageIdSequence(const messageIdSequence& midSeq)
 	copyFrom(midSeq);
 }
 
+messageIdSequence::messageIdSequence(const string &buffer)
+{
+	static parsingContext dummyCtx;
+	size_t pos = 0;
+	size_t end = buffer.length();
+
+	while (pos < end) {
+
+		shared_ptr <messageId> parsedMid = messageId::parseNext(dummyCtx, buffer, pos, end, &pos);
+
+		if (parsedMid) {
+			m_list.push_back(parsedMid);
+		}
+	}
+
+}
 
 shared_ptr <component> messageIdSequence::clone() const {
 

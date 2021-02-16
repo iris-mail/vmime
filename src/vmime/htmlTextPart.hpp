@@ -190,6 +190,11 @@ public:
 		const mediaType& type
 	);
 
+	shared_ptr <const embeddedObject> addObject(shared_ptr <contentHandler> data,
+		const mediaType& type,
+		const string &mid
+	);
+
 	/** Embed an object and returns a string which identifies it.
 	  * The returned identifier is suitable for use in the 'src' attribute
 	  * of an &lt;img> tag.

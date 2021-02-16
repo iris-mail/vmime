@@ -456,6 +456,15 @@ shared_ptr <const htmlTextPart::embeddedObject> htmlTextPart::addObject(
 	return obj;
 }
 
+shared_ptr <const htmlTextPart::embeddedObject> htmlTextPart::addObject(shared_ptr <contentHandler> data, const mediaType& type, const string &mid)
+{
+       shared_ptr <embeddedObject> obj = make_shared <embeddedObject>
+               (data, encoding::decide(data), mid, type, embeddedObject::REFERENCED_BY_ID);
+
+       m_objects.push_back(obj);
+
+       return obj;
+}
 
 shared_ptr <const htmlTextPart::embeddedObject> htmlTextPart::addObject(
 	const shared_ptr <contentHandler>& data,

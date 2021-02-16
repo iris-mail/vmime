@@ -212,6 +212,8 @@ public:
 
 		bool empty() const;
 
+		unsigned long toNum() const;
+
 		bool operator==(const uid& other) const;
 
 	private:
@@ -231,11 +233,15 @@ public:
 	  */
 	virtual shared_ptr <messageStructure> getStructure() = 0;
 
+	virtual bool hasStructure() const = 0;
+
 	/** Return a reference to the header fields of the message (must fetch before).
 	  *
 	  * @return header section of the message
 	  */
 	virtual shared_ptr <const header> getHeader() const = 0;
+
+	virtual bool hasHeader() const = 0;
 
 	/** Return the sequence number of this message. This number is
 	  * used to reference the message in the folder.
@@ -354,6 +360,8 @@ public:
 	  * @return a RFC-822-parsed message
 	  */
 	virtual shared_ptr <vmime::message> getParsedMessage() = 0;
+
+	virtual bool isValid() { return true; }
 };
 
 

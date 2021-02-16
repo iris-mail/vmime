@@ -133,6 +133,10 @@ bool message::uid::empty() const {
 	return m_str.empty();
 }
 
+unsigned long message::uid::toNum() const
+{
+	return ::strtoul(m_str.c_str(), NULL, 10);
+}
 
 bool message::uid::operator==(const uid& other) const {
 

@@ -176,6 +176,8 @@ public:
 	  */
 	virtual bool isOpen() const = 0;
 
+	virtual bool isConnected() const = 0;
+
 	/** Get a new reference to a message in this folder, given its number.
 	  *
 	  * @param num message sequence number

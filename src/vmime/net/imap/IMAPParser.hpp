@@ -704,6 +704,48 @@ public:
 		const bool m_nonZero;
 	};
 
+	DECLARE_COMPONENT(quad_number)
+
+		quad_number(const bool nonZero = false)
+			: value(0),
+			  m_nonZero(nonZero) {
+
+		}
+
+		bool parseImpl(IMAPParser& /* parser */, string& line, size_t* currentPos) {
+
+			size_t pos = *currentPos;
+
+			bool valid = true;
+			vmime_uint64 val = 0;
+
+			while (valid && pos < line.length()) {
+
+				const char c = line[pos];
+
+				if (c >= '0' && c <= '9') {
+					val = (val * 10) + (c - '0');
+					++pos;
+				} else {
+					valid = false;
+				}
+			}
+
+			// Check for non-null length (and for non-zero number)
+			if (!(m_nonZero && val == 0) && pos != *currentPos) {
+				value = val;
+				*currentPos = pos;
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		vmime_uint64 value;
+	private:
+
+		const bool m_nonZero;
+	};
 
 	// nz_number  ::= digit_nz *digit
 	//                ;; Non-zero unsigned 32-bit integer
@@ -720,6 +762,15 @@ public:
 		}
 	};
 
+	class nz_number64 : public quad_number {
+
+	public:
+
+		nz_number64()
+			: quad_number(true) {
+
+		}
+	};
 
 	//
 	// uniqueid    ::= nz_number
@@ -736,6 +787,20 @@ public:
 		}
 	};
 
+	//
+	// uniqueid    ::= nz_number
+	//                 ;; Strictly ascending
+	//
+
+	class uniqueid64 : public nz_number64 {
+
+	public:
+
+		uniqueid64()
+			: nz_number64() {
+
+		}
+	};
 
 	// uid-range       = (uniqueid ":" uniqueid)
 	//                   ; two uniqueid values and all values
@@ -1370,7 +1435,9 @@ public:
 
 					default:
 
-						if (c <= 0x1f || c >= 0x7f) {
+// wp.pl encodes names in UTF-8...
+						if (c <= 0x1f) {
+//						if (c <= 0x1f || c >= 0x7f) {
 							end = true;
 						} else {
 							++pos;
@@ -3594,6 +3661,14 @@ public:
 
 				VIMAP_PARSER_GET(IMAPParser::flag_list, flag_list);
 
+			// "X-GM-LABELS" SPACE "(" #(label / "\\Important") ")"
+			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "x-gm-labels")) {
+
+				type = X_GM_LABELS;
+
+				VIMAP_PARSER_CHECK(SPACE);
+				VIMAP_PARSER_GET(IMAPParser::header_list, label_list);
+
 			// "INTERNALDATE" SPACE date_time
 			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "internaldate")) {
 
@@ -3692,6 +3767,14 @@ public:
 
 				VIMAP_PARSER_CHECK(one_char <')'> );
 
+			// "X-GM-THRID" SPACE uniqueid64
+			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "x-gm-thrid")) {
+				type = X_GM_THRID;
+
+				VIMAP_PARSER_CHECK(SPACE);
+
+				VIMAP_PARSER_GET(uniqueid64, unique_thread_id);
+
 			// "UID" SPACE uniqueid
 			} else {
 
@@ -3721,7 +3804,9 @@ public:
 			BODY_SECTION,
 			BODY_STRUCTURE,
 			UID,
-			MODSEQ
+			MODSEQ,
+			X_GM_THRID,
+			X_GM_LABELS,
 		};
 
 
@@ -3731,11 +3816,13 @@ public:
 		std::unique_ptr <IMAPParser::number> number;
 		std::unique_ptr <IMAPParser::envelope> envelope;
 		std::unique_ptr <IMAPParser::uniqueid> uniqueid;
+		std::unique_ptr <IMAPParser::uniqueid64> unique_thread_id;
 		std::unique_ptr <IMAPParser::nstring> nstring;
 		std::unique_ptr <IMAPParser::xbody> body;
 		std::unique_ptr <IMAPParser::flag_list> flag_list;
 		std::unique_ptr <IMAPParser::section> section;
 		std::unique_ptr <IMAPParser::mod_sequence_value> mod_sequence_value;
+		std::unique_ptr <IMAPParser::header_list> label_list;
 	};
 
 
@@ -3894,7 +3981,7 @@ public:
 				type = UIDVALIDITY;
 
 				VIMAP_PARSER_CHECK(SPACE);
-				VIMAP_PARSER_GET(IMAPParser::nz_number, nz_number);
+				VIMAP_PARSER_GET(IMAPParser::number, number);
 
 			// "UIDNEXT" SPACE nz_number
 			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "uidnext")) {
@@ -3902,7 +3989,7 @@ public:
 				type = UIDNEXT;
 
 				VIMAP_PARSER_CHECK(SPACE);
-				VIMAP_PARSER_GET(IMAPParser::nz_number, nz_number);
+				VIMAP_PARSER_GET(IMAPParser::number, number);
 
 			// "UNSEEN" SPACE nz_number
 			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "unseen")) {
@@ -3910,7 +3997,7 @@ public:
 				type = UNSEEN;
 
 				VIMAP_PARSER_CHECK(SPACE);
-				VIMAP_PARSER_GET(IMAPParser::nz_number, nz_number);
+				VIMAP_PARSER_GET(IMAPParser::number, number);
 
 			// "HIGHESTMODSEQ" SP mod-sequence-value
 			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "highestmodseq")) {
@@ -3940,7 +4027,7 @@ public:
 				type = APPENDUID;
 
 				VIMAP_PARSER_CHECK(SPACE);
-				VIMAP_PARSER_GET(IMAPParser::nz_number, nz_number);
+				VIMAP_PARSER_GET(IMAPParser::number, number);
 				VIMAP_PARSER_CHECK(SPACE);
 				VIMAP_PARSER_GET(IMAPParser::uid_set, uid_set);
 
@@ -4005,6 +4092,7 @@ public:
 
 		Type type;
 
+		std::unique_ptr <IMAPParser::number> number;
 		std::unique_ptr <IMAPParser::nz_number> nz_number;
 		std::unique_ptr <IMAPParser::atom> atom;
 		std::unique_ptr <IMAPParser::flag_list> flag_list;
@@ -4122,6 +4210,10 @@ public:
 			size_t pos = *currentPos;
 
 			if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "ok")) {
+				status = OK;
+			} else if (!parser.isStrict() && VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "go")) {
+				status = OK;
+			} else if (!parser.isStrict() && VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "go ahead")) {
 				status = OK;
 			} else if (VIMAP_PARSER_TRY_CHECK_WITHARG(special_atom, "no")) {
 				status = NO;
@@ -4912,6 +5004,9 @@ public:
 		shared_ptr <timeoutHandler> toh = m_timeoutHandler.lock();
 		shared_ptr <socket> sok = m_socket.lock();
 
+		if (!sok)
+			throw exceptions::illegal_state("Store disconnected");
+
 		if (toh) {
 			toh->resetTimeOut();
 		}
@@ -4956,6 +5051,9 @@ public:
 
 		shared_ptr <timeoutHandler> toh = m_timeoutHandler.lock();
 		shared_ptr <socket> sok = m_socket.lock();
+
+		if (!sok)
+			throw exceptions::illegal_state("Store disconnected");
 
 		if (m_progress) {
 			m_progress->start(count);

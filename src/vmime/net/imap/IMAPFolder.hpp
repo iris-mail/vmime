@@ -89,6 +89,7 @@ public:
 	void destroy();
 
 	bool isOpen() const;
+	bool isConnected() const;
 
 	shared_ptr <message> getMessage(const size_t num);
 	std::vector <shared_ptr <message> > getMessages(const messageSet& msgs);
@@ -99,6 +100,8 @@ public:
 
 	shared_ptr <folder> getFolder(const folder::path::component& name);
 	std::vector <shared_ptr <folder> > getFolders(const bool recursive = false);
+
+	shared_ptr <IMAPFolderStatus> getCurrentFolderStatus();
 
 	void rename(const folder::path& newPath);
 

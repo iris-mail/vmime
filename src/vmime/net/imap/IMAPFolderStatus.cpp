@@ -99,6 +99,21 @@ shared_ptr <folderStatus> IMAPFolderStatus::clone() const {
 	return make_shared <IMAPFolderStatus>(*this);
 }
 
+bool IMAPFolderStatus::updateAfterExpunge(const size_t expunged)
+{
+	if (expunged > 0 && expunged <= m_count)
+	{
+		m_count -= expunged;
+		return true;
+	}
+	else if (expunged)
+	{
+		m_count = 0;
+		return true;
+	}
+
+	return false;
+}
 
 bool IMAPFolderStatus::updateFromResponse(const IMAPParser::mailbox_data& resp) {
 
@@ -220,7 +235,7 @@ bool IMAPFolderStatus::updateFromResponse(const IMAPParser::resp_text_code& resp
 		case IMAPParser::resp_text_code::UIDVALIDITY: {
 
 			const vmime_uint32 uidValidity =
-				static_cast <vmime_uint32>(resp.nz_number->value);
+				static_cast <vmime_uint32>(resp.number->value);
 
 			if (m_uidValidity != uidValidity) {
 				m_uidValidity = uidValidity;
@@ -232,7 +247,7 @@ bool IMAPFolderStatus::updateFromResponse(const IMAPParser::resp_text_code& resp
 		case IMAPParser::resp_text_code::UIDNEXT: {
 
 			const vmime_uint32 uidNext =
-				static_cast <vmime_uint32>(resp.nz_number->value);
+				static_cast <vmime_uint32>(resp.number->value);
 
 			if (m_uidNext != uidNext) {
 				m_uidNext = uidNext;
@@ -244,7 +259,7 @@ bool IMAPFolderStatus::updateFromResponse(const IMAPParser::resp_text_code& resp
 		case IMAPParser::resp_text_code::UNSEEN: {
 
 			const size_t unseen =
-				static_cast <size_t>(resp.nz_number->value);
+				static_cast <size_t>(resp.number->value);
 
 			if (m_unseen != unseen)
 			{

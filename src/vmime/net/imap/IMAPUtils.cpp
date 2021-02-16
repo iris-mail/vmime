@@ -372,6 +372,9 @@ const folder::path::component IMAPUtils::fromModifiedUTF7(const string& text) {
 				}
 
 				out += c;
+
+				if (c == '+' && !inB64sequence)
+					out += '-';
 				break;
 			}
 		}
@@ -641,6 +644,14 @@ shared_ptr <IMAPCommand> IMAPUtils::buildFetchCommand(
 	if (options.has(fetchAttributes::STRUCTURE)) {
 		items.push_back("BODYSTRUCTURE");
 	}
+	
+	if (options.has(fetchAttributes::X_GM_THRID)) {
+		items.push_back("X-GM-THRID");
+	}
+
+	if (options.has(fetchAttributes::X_GM_LABELS)) {
+		items.push_back("X-GM-LABELS");
+	}
 
 	if (options.has(fetchAttributes::UID)) {
 
@@ -691,7 +702,10 @@ shared_ptr <IMAPCommand> IMAPUtils::buildFetchCommand(
 				list += *it;
 			}
 
-			items.push_back("BODY[HEADER.FIELDS (" + list + ")]");
+			if (options.has(fetchAttributes::PEEK))
+				items.push_back("BODY.PEEK[HEADER.FIELDS (" + list + ")]");
+			else
+				items.push_back("BODY[HEADER.FIELDS (" + list + ")]");
 		}
 	}
 

@@ -57,7 +57,9 @@ public:
 		FULL_HEADER = (1 << 5),    /**< Full RFC-[2]822 header. */
 		UID = (1 << 6),            /**< Unique identifier (protocol specific). */
 		IMPORTANCE = (1 << 7),     /**< Header fields suitable for use with misc::importanceHelper. */
-
+		X_GM_THRID = (1 << 8),     /**< GMail Thread ID extension. */
+		X_GM_LABELS = (1 << 9),    /**< GMail Labels. */
+		PEEK = (1 << 15),          /**< Use IMAP PEEK method. */
 		CUSTOM = (1 << 16)         /**< Reserved for future use. */
 	};
 

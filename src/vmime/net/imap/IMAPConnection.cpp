@@ -701,11 +701,11 @@ shared_ptr <connectionInfos> IMAPConnection::getConnectionInfos() const {
 
 void IMAPConnection::disconnect() {
 
-	if (!isConnected()) {
+	bool wasConnected = isConnected();
+	internalDisconnect();
+	if (!wasConnected) {
 		throw exceptions::not_connected();
 	}
-
-	internalDisconnect();
 }
 
 
@@ -714,7 +714,9 @@ void IMAPConnection::internalDisconnect() {
 	if (isConnected()) {
 
 		IMAPCommand::LOGOUT()->send(dynamicCast <IMAPConnection>(shared_from_this()));
+	}
 
+	if (m_socket) {
 		m_socket->disconnect();
 		m_socket = null;
 	}

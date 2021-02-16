@@ -70,6 +70,8 @@ public:
 	shared_ptr <messageStructure> getStructure();
 
 	shared_ptr <const header> getHeader() const;
+	bool hasStructure() const;
+	bool hasHeader() const;
 
 	int getFlags() const;
 	void setFlags(const int flags, const int mode = FLAG_MODE_SET);

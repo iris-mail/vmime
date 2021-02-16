@@ -101,6 +101,15 @@ size_t POP3Message::getSize() const {
 	return m_size;
 }
 
+bool POP3Message::hasStructure() const
+{
+	return false;
+}
+
+bool POP3Message::hasHeader() const
+{
+	return NULL != m_header;
+}
 
 bool POP3Message::isExpunged() const {
 

@@ -398,6 +398,8 @@ size_t qpEncoder::decode(
 	size_t total = 0;
 	size_t inTotal = 0;
 
+	bool wasNL = false;
+
 	while (bufferPos < bufferLength || !in.eof()) {
 
 		// Flush current output buffer
@@ -441,11 +443,29 @@ size_t qpEncoder::decode(
 
 					++inTotal;
 
+
+                               // t-online mangles emails
+                               while (c == ' ')
+                               {
+                                       // Read one byte more
+                                       if (bufferPos >= bufferLength)
+                                       {
+                                               bufferLength = in.read(buffer, sizeof(buffer));
+                                               bufferPos = 0;
+                                       }
+
+                                       if (bufferPos < bufferLength)
+                                       {
+                                               c = buffer[bufferPos++];
+                                               ++inTotal;
+                                       }
+                               }
+
 					switch (c) {
 
 						// Ignore soft line break ("=\r\n" or "=\n")
 						case '\r':
-
+							wasNL = true;
 							// Read one byte more
 							if (bufferPos >= bufferLength) {
 								bufferLength = in.read(buffer, sizeof(buffer));
@@ -460,12 +480,14 @@ size_t qpEncoder::decode(
 							break;
 
 						case '\n':
-
+							wasNL = true;
 							break;
 
 						// Hex-encoded char
 						default:
 						{
+							wasNL = false;
+
 							// We need another byte...
 							if (bufferPos >= bufferLength) {
 								bufferLength = in.read(buffer, sizeof(buffer));
@@ -482,8 +504,10 @@ size_t qpEncoder::decode(
 									sm_hexDecodeTable[c] * 16 + sm_hexDecodeTable[next]
 								);
 
-								outBuffer[outBufferPos++] = value;
-
+                                               if (value == 0)
+                                                       outBuffer[outBufferPos++] = ' ';
+                                               else
+                                                       outBuffer[outBufferPos++] = value;
 							} else {
 
 								// Premature end-of-data
@@ -501,6 +525,27 @@ size_t qpEncoder::decode(
 
 				break;
 			}
+               case '\r':
+               if (wasNL)
+               {
+                       wasNL = false;
+
+                       // Read one byte more
+                       if (bufferPos >= bufferLength)
+                       {
+                               bufferLength = in.read(buffer, sizeof(buffer));
+                               bufferPos = 0;
+                       }
+
+                       if (bufferPos < bufferLength)
+                       {
+                               ++bufferPos;
+                               ++inTotal;
+                       }
+               }
+               else
+                       outBuffer[outBufferPos++] = c;
+               break;
 			case '_': {
 
 				if (rfc2047) {
@@ -516,7 +561,7 @@ size_t qpEncoder::decode(
 				break;
 			}
 			default: {
-
+				wasNL = false;
 				outBuffer[outBufferPos++] = c;
 				break;
 			}

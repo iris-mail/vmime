@@ -83,11 +83,15 @@ void messageParser::parse(const shared_ptr <const message>& msg) {
 	// Date
 	shared_ptr <const headerField> recv = msg->getHeader()->findField(fields::RECEIVED);
 
+	static const datetime unsetDate;
+	m_date = unsetDate;
+
 	if (recv) {
 
 		m_date = recv->getValue <relay>()->getDate();
+	}
 
-	} else {
+	if (m_date == unsetDate) {
 
 		shared_ptr <const headerField> date = msg->getHeader()->findField(fields::DATE);
 
@@ -204,7 +208,18 @@ bool messageParser::findSubTextParts(
 
 		} else {
 
-			// No "Content-type" field.
+                       // No "Content-type" field. RFC2045 assumes this is TEXT/PLAIN
+                       try
+                       {
+                               shared_ptr <textPart> txtPart = textPartFactory::getInstance()->create(mediaType(mediaTypes::TEXT, mediaTypes::TEXT_PLAIN));
+                               txtPart->parse(msg, part, p);
+
+                               m_textParts.push_back(txtPart);
+                       }
+                       catch (exceptions::no_factory_available& e)
+                       {
+                               // Content-type not recognized.
+                       }
 		}
 	}
 

@@ -38,6 +38,7 @@ class VMIME_EXPORT messageIdSequence : public headerFieldValue {
 public:
 
 	messageIdSequence();
+	messageIdSequence(const string &);
 	messageIdSequence(const messageIdSequence& midSeq);
 
 	~messageIdSequence();

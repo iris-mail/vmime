@@ -66,6 +66,7 @@ public:
 	size_t getNumber() const;
 
 	const uid getUID() const;
+	vmime_uint64 getThreadUID() const;
 
 	/** Returns the modification sequence for this message.
 	  *
@@ -85,11 +86,15 @@ public:
 
 	shared_ptr <const messageStructure> getStructure() const;
 	shared_ptr <messageStructure> getStructure();
+	bool hasStructure() const;
 
 	shared_ptr <const header> getHeader() const;
+	bool hasHeader() const;
 
 	int getFlags() const;
 	void setFlags(const int flags, const int mode = FLAG_MODE_SET);
+
+	const std::vector <string> getLabels() const;
 
 	void extract(
 		utility::outputStream& os,
@@ -111,6 +116,8 @@ public:
 	void fetchPartHeader(const shared_ptr <messagePart>& p);
 
 	shared_ptr <vmime::message> getParsedMessage();
+
+	bool isValid();
 
 private:
 
@@ -183,7 +190,9 @@ private:
 	int m_flags;
 	bool m_expunged;
 	uid m_uid;
+	vmime_uint64 m_thread_uid;
 	vmime_uint64 m_modseq;
+	shared_ptr <std::vector <string> > m_labels;
 
 	shared_ptr <header> m_header;
 	shared_ptr <messageStructure> m_structure;

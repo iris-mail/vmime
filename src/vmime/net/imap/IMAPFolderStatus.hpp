@@ -102,6 +102,8 @@ public:
 	  */
 	bool updateFromResponse(const IMAPParser::resp_text_code& resp);
 
+	bool updateAfterExpunge(const size_t expunged);
+
 private:
 
 	size_t m_count;
