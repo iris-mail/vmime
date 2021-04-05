@@ -38,6 +38,8 @@
 #include "vmime/net/imap/IMAPMessagePart.hpp"
 #include "vmime/net/imap/IMAPMessagePartContentHandler.hpp"
 
+#include "vmime/messageId.hpp"
+#include "vmime/messageIdSequence.hpp"
 #include "vmime/utility/outputStreamAdapter.hpp"
 
 #include <sstream>
@@ -318,6 +320,14 @@ size_t IMAPMessage::extractImpl(
 
 	shared_ptr <const IMAPFolder> folder = m_folder.lock();
 
+	if (!folder) {
+		throw exceptions::folder_not_found();
+	}
+	
+	if (!folder->isOpen()) {
+		throw exceptions::illegal_state("Folder not open");
+	}
+	
 	IMAPMessage_literalHandler literalHandler(os, progress);
 
 	if (length == 0) {
@@ -474,7 +484,6 @@ size_t IMAPMessage::extractImpl(
 	return literalHandler.getTarget()->getBytesWritten();
 }
 
-
 int IMAPMessage::processFetchResponse(
 	const fetchAttributes& options,
 	const IMAPParser::message_data& msgData
@@ -570,6 +579,19 @@ int IMAPMessage::processFetchResponse(
 
 					if (!bcc.isEmpty()) {
 						hdr->Bcc()->setValue(bcc.toAddressList());
+					}
+
+					// Message-ID
+					if (!env->env_message_id->isNIL) {
+						hdr->MessageId()->setValue(messageId(env->env_message_id->value));
+					}
+
+					// In-Reply-To
+					if (!env->env_in_reply_to->isNIL) {
+						shared_ptr <messageId> mid = make_shared <messageId>(env->env_in_reply_to->value);
+						messageIdSequence sequence;
+						sequence.appendMessageId(mid);
+						hdr->InReplyTo()->setValue(sequence);
 					}
 				}
 
@@ -717,10 +739,16 @@ shared_ptr <vmime::message> IMAPMessage::getParsedMessage() {
 
 	} catch (exceptions::unfetched_object&) {
 
+		auto folder = m_folder.lock();
+
+		if (!folder) {
+			throw exceptions::folder_not_found();
+		}
+
 		std::vector <shared_ptr <message> > msgs;
 		msgs.push_back(dynamicCast <IMAPMessage>(shared_from_this()));
 
-		m_folder.lock()->fetchMessages(
+		folder->fetchMessages(
 			msgs, fetchAttributes(fetchAttributes::STRUCTURE), /* progress */ NULL
 		);
 
